@@ -2,6 +2,13 @@ from bot.client import BinanceClient
 
 client = BinanceClient()
 
-server_time = client.get_server_time()
+print("========== TEST ==========")
 
-print(server_time)
+try:
+    account = client.client.futures_account()
+
+    print(account)
+
+except Exception as e:
+    print(type(e))
+    print(e)
