@@ -1,92 +1,176 @@
 """
-Binance Futures Client Wrapper
+Binance Futures REST Client
 """
 
-from binance.client import Client
-from binance.exceptions import BinanceAPIException
+import hashlib
+import hmac
+import time
+import urllib.parse
+
+import requests
 
 from bot.config import API_KEY, API_SECRET, BASE_URL
 from bot.logging_config import logger
 
 
 class BinanceClient:
-    """
-    Wrapper class for Binance Futures Testnet.
-    """
+    """Simple Binance Futures REST Client."""
 
     def __init__(self):
+        self.base_url = BASE_URL
+
+        self.headers = {
+            "X-MBX-APIKEY": API_KEY
+        }
+
+    # -------------------------------------------------
+    # Generate Signature
+    # -------------------------------------------------
+
+    def _generate_signature(self, params):
+
+        query = urllib.parse.urlencode(params)
+
+        return hmac.new(
+            API_SECRET.encode(),
+            query.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+    # -------------------------------------------------
+    # Send Signed Request
+    # -------------------------------------------------
+
+    def _send_request(self, method, endpoint, params=None):
+
+        if params is None:
+            params = {}
+
+        params["timestamp"] = int(time.time() * 1000)
+        params["recvWindow"] = 5000
+
+        params["signature"] = self._generate_signature(params)
+
+        url = self.base_url + endpoint
+
+        logger.info(f"{method} {url}")
+        logger.info(params)
+
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=self.headers,
+            params=params,
+            timeout=30,
+        )
+
+        logger.info(response.text)
+
         try:
-            self.client = Client(
-                api_key=API_KEY,
-                api_secret=API_SECRET,
-            )
-
-            # Point Futures API to Testnet
-            self.client.FUTURES_URL = BASE_URL
-
-            logger.info("Connected to Binance Futures Testnet.")
-
+            data = response.json()
         except Exception:
-            logger.exception("Failed to initialize Binance client.")
-            raise
+            response.raise_for_status()
 
-    def get_server_time(self):
-        """Check API connectivity."""
-        return self.client.futures_time()
+        if response.status_code >= 400:
 
-    def place_market_order(self, symbol, side, quantity):
-        try:
+            message = data.get("msg", "Unknown Error")
+            code = data.get("code", response.status_code)
 
-            logger.info(
-                f"Submitting MARKET order | "
-                f"Symbol={symbol}, Side={side}, Quantity={quantity}"
+            if code == -4164:
+                raise Exception(
+                    "Order value must be at least 50 USDT. Increase the quantity."
+                )
+
+            if code == -2019:
+                raise Exception(
+                    "Margin is insufficient. Check your Demo Futures account."
+                )
+
+            raise Exception(
+                f"Binance Error {code}: {message}"
             )
 
-            response = self.client.futures_create_order(
-                symbol=symbol,
-                side=side,
-                type="MARKET",
-                quantity=quantity,
-            )
+        return data
 
-            logger.info(f"Response: {response}")
+    # -------------------------------------------------
+    # Ping
+    # -------------------------------------------------
 
-            return response
+    def ping(self):
 
-        except BinanceAPIException:
-            logger.exception("Binance API Error")
-            raise
+        return requests.get(
+            self.base_url + "/fapi/v1/ping"
+        ).json()
 
-        except Exception:
-            logger.exception("Unexpected Error")
-            raise
+    # -------------------------------------------------
+    # Server Time
+    # -------------------------------------------------
 
-    def place_limit_order(self, symbol, side, quantity, price):
-        try:
+    def server_time(self):
 
-            logger.info(
-                f"Submitting LIMIT order | "
-                f"Symbol={symbol}, Side={side}, "
-                f"Quantity={quantity}, Price={price}"
-            )
+        return requests.get(
+            self.base_url + "/fapi/v1/time"
+        ).json()
 
-            response = self.client.futures_create_order(
-                symbol=symbol,
-                side=side,
-                type="LIMIT",
-                quantity=quantity,
-                price=price,
-                timeInForce="GTC",
-            )
+    # -------------------------------------------------
+    # Market Order
+    # -------------------------------------------------
 
-            logger.info(f"Response: {response}")
+    def place_market_order(
+        self,
+        symbol,
+        side,
+        quantity,
+    ):
 
-            return response
+        params = {
 
-        except BinanceAPIException:
-            logger.exception("Binance API Error")
-            raise
+            "symbol": symbol,
 
-        except Exception:
-            logger.exception("Unexpected Error")
-            raise
+            "side": side,
+
+            "type": "MARKET",
+
+            "quantity": quantity,
+
+        }
+
+        return self._send_request(
+            "POST",
+            "/fapi/v1/order",
+            params,
+        )
+
+    # -------------------------------------------------
+    # Limit Order
+    # -------------------------------------------------
+
+    def place_limit_order(
+        self,
+        symbol,
+        side,
+        quantity,
+        price,
+    ):
+
+        params = {
+
+            "symbol": symbol,
+
+            "side": side,
+
+            "type": "LIMIT",
+
+            "quantity": quantity,
+
+            "price": price,
+
+            "timeInForce": "GTC",
+
+        }
+
+        return self._send_request(
+            "POST",
+            "/fapi/v1/order",
+            params,
+        )

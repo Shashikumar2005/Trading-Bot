@@ -17,6 +17,10 @@ def validate_symbol(symbol):
 
     if len(symbol) < 6:
         raise ValueError("Invalid trading symbol.")
+    if not symbol.endswith("USDT"):
+        raise ValueError(
+            "Only USDT Future symbolsare supported."
+        )
 
     return symbol
 

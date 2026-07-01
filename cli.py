@@ -81,18 +81,23 @@ def main():
             price=args.price,
         )
 
-        print("\n" + "=" * 50)
+        print("\n" + "=" * 60)
         print("ORDER RESPONSE")
-        print("=" * 50)
+        print("=" * 60)
 
-        print(f"Order ID        : {response.get('orderId')}")
-        print(f"Status          : {response.get('status')}")
-        print(f"Symbol          : {response.get('symbol')}")
-        print(f"Side            : {response.get('side')}")
-        print(f"Executed Qty    : {response.get('executedQty')}")
-        print(f"Average Price   : {response.get('avgPrice', 'N/A')}")
+        print(f"Order ID         : {response.get('orderId')}")
+        print(f"Status           : {response.get('status')}")
+        print(f"Symbol           : {response.get('symbol')}")
+        print(f"Side             : {response.get('side')}")
+        print(f"Order Type       : {response.get('type')}")
+        print(f"Original Qty     : {response.get('origQty')}")
+        print(f"Executed Qty     : {response.get('executedQty')}")
+        print(f"Price            : {response.get('price')}")
+        print(f"Average Price    : {response.get('avgPrice', 'N/A')}")
+        print(f"Client Order ID  : {response.get('clientOrderId')}")
 
-        print("\n Order placed successfully.")
+        print("=" * 60)
+        print(" Order submitted successfully.")
 
     except Exception as e:
 
