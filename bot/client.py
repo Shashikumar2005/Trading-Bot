@@ -1,37 +1,46 @@
 """
 Binance Futures Client Wrapper
 
-Handles:
-- Connection to Binance Futures Testnet
-- Market Orders
-- Limit Orders
-- API Error Handling
+Responsible for:
+- Connecting to Binance Futures Testnet
+- Placing Market Orders
+- Placing Limit Orders
+- Logging API requests and responses
+- Handling Binance API exceptions
 """
 
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 
-from bot.config import API_KEY, API_SECRET, BASE_URL
+from bot.config import API_KEY, API_SECRET
 from bot.logging_config import logger
 
 
 class BinanceClient:
     """
-    Wrapper class for Binance Futures Testnet.
+    Wrapper around python-binance for Binance Futures Testnet.
     """
 
     def __init__(self):
         try:
-            self.client = Client(API_KEY, API_SECRET)
+            # Connect to Binance Futures Testnet
+            self.client = Client(
+                api_key=API_KEY,
+                api_secret=API_SECRET,
+                testnet=True
+            )
 
-            # Use Binance Futures Testnet
-            self.client.FUTURES_URL = BASE_URL
-
-            logger.info("Successfully connected to Binance Futures Testnet.")
+            logger.info("Connected to Binance Futures Testnet.")
 
         except Exception as e:
-            logger.error(f"Failed to initialize Binance client: {e}")
-            raise
+            logger.exception("Failed to initialize Binance client.")
+            raise e
+
+    def get_server_time(self):
+        """
+        Check API connection.
+        """
+        return self.client.futures_time()
 
     def place_market_order(self, symbol, side, quantity):
         """
@@ -40,7 +49,7 @@ class BinanceClient:
 
         try:
             logger.info(
-                f"Market Order Request | "
+                f"Submitting MARKET order | "
                 f"Symbol={symbol}, Side={side}, Qty={quantity}"
             )
 
@@ -48,7 +57,7 @@ class BinanceClient:
                 symbol=symbol,
                 side=side,
                 type="MARKET",
-                quantity=quantity,
+                quantity=quantity
             )
 
             logger.info(f"Market Order Response: {response}")
@@ -56,12 +65,12 @@ class BinanceClient:
             return response
 
         except BinanceAPIException as e:
-            logger.error(f"Binance API Error: {e.message}")
-            raise
+            logger.exception("Binance API Error")
+            raise e
 
         except Exception as e:
-            logger.error(f"Unexpected Error: {e}")
-            raise
+            logger.exception("Unexpected Error")
+            raise e
 
     def place_limit_order(self, symbol, side, quantity, price):
         """
@@ -70,7 +79,7 @@ class BinanceClient:
 
         try:
             logger.info(
-                f"Limit Order Request | "
+                f"Submitting LIMIT order | "
                 f"Symbol={symbol}, Side={side}, Qty={quantity}, Price={price}"
             )
 
@@ -80,7 +89,7 @@ class BinanceClient:
                 type="LIMIT",
                 quantity=quantity,
                 price=price,
-                timeInForce="GTC",
+                timeInForce="GTC"
             )
 
             logger.info(f"Limit Order Response: {response}")
@@ -88,16 +97,9 @@ class BinanceClient:
             return response
 
         except BinanceAPIException as e:
-            logger.error(f"Binance API Error: {e.message}")
-            raise
+            logger.exception("Binance API Error")
+            raise e
 
         except Exception as e:
-            logger.error(f"Unexpected Error: {e}")
-            raise
-
-    def get_server_time(self):
-        """
-        Check API connectivity.
-        """
-
-        return self.client.futures_time()
+            logger.exception("Unexpected Error")
+            raise e
